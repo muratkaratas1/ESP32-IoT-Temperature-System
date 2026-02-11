@@ -5,25 +5,38 @@ from email.mime.multipart import MIMEMultipart
 import time
 from datetime import datetime
 
-# 🔹 Thingspeak ayarları
-THINGSPEAK_API_URL = "https://api.thingspeak.com/channels/YOUR_CHANNEL_ID/fields/1/last.json"
+# =========================
+# ThingSpeak Ayarları
+# =========================
+THINGSPEAK_CHANNEL_ID = "YOUR_CHANNEL_ID"
 THINGSPEAK_API_KEY = "YOUR_READ_API_KEY"
 
-# 🔹 Kritik sıcaklık eşiği
+THINGSPEAK_API_URL = f"https://api.thingspeak.com/channels/{THINGSPEAK_CHANNEL_ID}/fields/1/last.json"
+
+# =========================
+# Kritik Sıcaklık Eşiği
+# =========================
 KRITIK_SICAKLIK = 30.0
 
-# 🔹 E-posta ayarları
+# =========================
+# E-Posta Ayarları
+# =========================
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL = "gonderen@gmail.com"
-PASSWORD = "uygulama_sifresi"     # Gmail uygulama şifresi
-TO_EMAIL = "yonetici@gmail.com"
 
-# 🔹 Zaman ve uyarı kontrolü
+EMAIL = "your_email@gmail.com"
+PASSWORD = "your_app_password"  # Gmail uygulama şifresi
+TO_EMAIL = "receiver_email@gmail.com"
+
+# =========================
+# Zaman Kontrolleri
+# =========================
 SON_MAIL_ZAMANI = 0
-MAIL_GECIKME_SURESI = 600   # Aynı uyarı için 10 dakika bekleme
+MAIL_GECIKME_SURESI = 600      # 10 dakika
+
 SON_BASARISIZ_VERI_ZAMANI = 0
-VERI_UYARI_SURESI = 300      # 5 dakika veri alınamazsa uyarı gönder
+VERI_UYARI_SURESI = 300        # 5 dakika
+
 
 def send_email(subject, body):
     """Mail gönderme işlemi"""
@@ -40,25 +53,34 @@ def send_email(subject, body):
         server.send_message(msg)
         server.quit()
 
-        print(f"✅ Mail gönderildi: {subject}")
+        print(f"Mail gönderildi: {subject}")
 
     except Exception as e:
-        print("❌ E-posta gönderim hatası:", e)
+        print("E-posta gönderim hatası:", e)
+
 
 def get_temperature():
-    """Thingspeak'ten sıcaklık verisini çeker"""
+    """ThingSpeak'ten sıcaklık verisini çeker"""
     try:
-        response = requests.get(THINGSPEAK_API_URL, params={"api_key": THINGSPEAK_API_KEY}, timeout=10)
+        response = requests.get(
+            THINGSPEAK_API_URL,
+            params={"api_key": THINGSPEAK_API_KEY},
+            timeout=10
+        )
+
         data = response.json()
         temp = float(data["field1"])
         return temp
+
     except Exception as e:
-        print("⚠️ Veri alınamadı:", e)
+        print("Veri alınamadı:", e)
         return None
+
 
 def main():
     global SON_MAIL_ZAMANI, SON_BASARISIZ_VERI_ZAMANI
-    print("🌡️ Sistem başlatıldı. Sıcaklık ve bağlantı izleniyor...")
+
+    print("Sistem başlatıldı. Sıcaklık ve bağlantı izleniyor...")
 
     while True:
         now = time.time()
@@ -70,26 +92,28 @@ def main():
             # Kritik sıcaklık kontrolü
             if temp >= KRITIK_SICAKLIK and (now - SON_MAIL_ZAMANI) > MAIL_GECIKME_SURESI:
                 send_email(
-                    "⚠️ Kritik Sıcaklık Uyarısı",
-                    f"Sistem odasındaki sıcaklık kritik seviyeye ulaştı.\nAnlık sıcaklık: {temp} °C"
+                    "Kritik Sıcaklık Uyarısı",
+                    f"Sıcaklık kritik seviyeye ulaştı.\nAnlık sıcaklık: {temp} °C"
                 )
                 SON_MAIL_ZAMANI = now
 
-            SON_BASARISIZ_VERI_ZAMANI = 0  # Veri alındıysa hata süresini sıfırla
+            SON_BASARISIZ_VERI_ZAMANI = 0
 
         else:
-            # Veri alınamadığında süreyi başlat veya devam ettir
+            # Veri alınamadığında süre takibi
             if SON_BASARISIZ_VERI_ZAMANI == 0:
                 SON_BASARISIZ_VERI_ZAMANI = now
+
             elif (now - SON_BASARISIZ_VERI_ZAMANI) > VERI_UYARI_SURESI:
                 send_email(
-                    "🚫 Veri Alınamıyor Uyarısı",
-                    "Thingspeak üzerinden son 5 dakikadır sıcaklık verisi alınamıyor.\n"
-                    "Olası internet kesintisi veya cihaz bağlantı sorunu olabilir."
+                    "Veri Alınamıyor Uyarısı",
+                    "Son 5 dakikadır ThingSpeak üzerinden veri alınamıyor.\n"
+                    "Bağlantı veya cihaz kontrol edilmelidir."
                 )
-                SON_BASARISIZ_VERI_ZAMANI = now  # Tekrar uyarı döngüsü başlat
+                SON_BASARISIZ_VERI_ZAMANI = now
 
-        time.sleep(60)  # 1 dakikada bir kontrol
+        time.sleep(60)
+
 
 if __name__ == "__main__":
     main()
